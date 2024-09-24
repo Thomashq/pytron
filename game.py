@@ -7,34 +7,43 @@ from moto import Motorcycle
 class Game:
     def __init__(self):
         self.arena = Arena()
-        self.moto1 = Motorcycle(-10.0, 0.0, 0.0, (1.0, 0.0, 0.0))  # Moto vermelha
-        self.moto2 = Motorcycle(10.0, 0.0, 0.0, (0.0, 1.0, 0.0))   # Moto verde
+        self.moto1 = Motorcycle(-10.0, 0.0, 0.0, (0.0, 0.0, 1.0))  # Moto azul
+        self.moto2 = Motorcycle(10.0, 0.0, 0.0, (1.0, 1.0, 0.0))   # Moto verde
         self.keys = {}  # Dicionário para armazenar o estado das teclas
+        self.game_paused = False  # Variável para pausar o jogo
 
     def init(self):
-        glClearColor(0.0, 0.0, 0.0, 1.0)
+        glClearColor(0.0, 0.0, 0.0, 1.0)  # Fundo preto
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
-        light_position = [0.0, 50.0, 50.0, 1.0]
+        glFrontFace(GL_CCW) 
+
+        # Ajuste a posição da luz para melhorar a iluminação
+        light_position = [0.0, 50.0, 100.0, 1.0]
         glLightfv(GL_LIGHT0, GL_POSITION, light_position)
-        diffuse_light = [0.5, 0.5, 0.5, 1.0]  # Luz difusa mais suave
-        specular_light = [0.3, 0.3, 0.3, 1.0]  # Especular reduzido
+        
+        # Aumente a intensidade da luz difusa e especular
+        diffuse_light = [0.7, 0.7, 0.7, 1.0]
+        specular_light = [0.5, 0.5, 0.5, 1.0]
         glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse_light)
         glLightfv(GL_LIGHT0, GL_SPECULAR, specular_light)
-        ambient_light = [0.2, 0.2, 0.2, 1.0]
+        
+        # Luz ambiente mais baixa para criar um contraste com as luzes das motos e da arena
+        ambient_light = [0.1, 0.1, 0.1, 1.0]
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient_light)
 
     def check_collisions(self):
-        for x, z in self.moto1.trail:
-            if self.moto2.check_collision(x, z):
-                print("Moto2 colidiu com o rastro da Moto1!")
-                self.moto2.speed = 0
+        if not self.game_paused:  # Verificar colisões apenas se o jogo não estiver pausado
+            for x, z in self.moto1.trail:
+                if self.moto2.check_collision(x, z):
+                    print("Moto2 colidiu com o rastro da Moto1!")
+                    self.moto2.speed = 0
 
-        for x, z in self.moto2.trail:
-            if self.moto1.check_collision(x, z):
-                print("Moto1 colidiu com o rastro da Moto2!")
-                self.moto1.speed = 0
+            for x, z in self.moto2.trail:
+                if self.moto1.check_collision(x, z):
+                    print("Moto1 colidiu com o rastro da Moto2!")
+                    self.moto1.speed = 0
 
     def reshape(self, w, h):
         if h == 0:
@@ -55,30 +64,32 @@ class Game:
         glutSwapBuffers()
 
     def update(self, value):
-        # Verifica o estado das teclas para moto1
-        if self.keys.get(b'w'):
-            self.moto1.accelerate()
-        if self.keys.get(b's'):
-            self.moto1.move_backwards()
-        if self.keys.get(b'a'):
-            self.moto1.turn_left()
-        if self.keys.get(b'd'):
-            self.moto1.turn_right()
+        if not self.game_paused:  # Atualizar apenas se o jogo não estiver pausado
+            # Verifica o estado das teclas para moto1
+            if self.keys.get(b'w'):
+                self.moto1.accelerate()
+            if self.keys.get(b's'):
+                self.moto1.move_backwards()
+            if self.keys.get(b'a'):
+                self.moto1.turn_left()
+            if self.keys.get(b'd'):
+                self.moto1.turn_right()
 
-        # Verifica o estado das teclas para moto2 (teclas especiais)
-        if self.keys.get(GLUT_KEY_UP):
-            self.moto2.accelerate()
-        if self.keys.get(GLUT_KEY_DOWN):
-            self.moto2.move_backwards()
-        if self.keys.get(GLUT_KEY_LEFT):
-            self.moto2.turn_left()
-        if self.keys.get(GLUT_KEY_RIGHT):
-            self.moto2.turn_right()
+            # Verifica o estado das teclas para moto2 (teclas especiais)
+            if self.keys.get(GLUT_KEY_UP):
+                self.moto2.accelerate()
+            if self.keys.get(GLUT_KEY_DOWN):
+                self.moto2.move_backwards()
+            if self.keys.get(GLUT_KEY_LEFT):
+                self.moto2.turn_left()
+            if self.keys.get(GLUT_KEY_RIGHT):
+                self.moto2.turn_right()
+            
+            self.check_collisions()
+            # Atualiza a posição das motos
+            self.moto1.update_position(self.arena.size)
+            self.moto2.update_position(self.arena.size)
         
-        self.check_collisions()
-        # Atualiza a posição das motos
-        self.moto1.update_position(self.arena.size)
-        self.moto2.update_position(self.arena.size)
         glutPostRedisplay()
         glutTimerFunc(16, self.update, 0)
 
@@ -93,3 +104,11 @@ class Game:
 
     def special_input_up(self, key, x, y):
         self.keys[key] = False  # Marca tecla especial como liberada
+
+    def toggle_pause(self):
+        self.game_paused = not self.game_paused
+        if self.game_paused:
+            print("Jogo pausado.")
+        else:
+            print("Jogo retomado.")
+
